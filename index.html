@@ -1,0 +1,664 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Emoji Turnier</title>
+  <style>
+    :root{
+      --bg1:#0f1724;
+      --bg2:#081126;
+      --card:#0b1220cc;
+      --accent:#7ee7c6;
+      --muted:#a7b0c2;
+      --glass: rgba(255,255,255,0.04);
+      --glass-2: rgba(255,255,255,0.02);
+      --radius:14px;
+      --card-pad:18px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    html,body{height:100%;margin:0;}
+    body{
+      background: linear-gradient(135deg,var(--bg1),var(--bg2));
+      color:#e6eef8;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      padding:28px;
+      box-sizing:border-box;
+    }
+    .app{
+      max-width:1100px;
+      margin:0 auto;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:18px;
+      padding:28px;
+      box-shadow: 0 10px 30px rgba(2,6,23,0.7), inset 0 1px 0 rgba(255,255,255,0.02);
+      border:1px solid rgba(255,255,255,0.03);
+      min-height:80vh;
+    }
+    h1{
+      margin:0 0 8px 0;
+      font-weight:600;
+      letter-spacing:0.2px;
+    }
+    p.lead{
+      margin:0 0 18px 0;
+      color:var(--muted);
+    }
+
+    /* Initial grid */
+    .grid-32{
+      display:grid;
+      grid-template-columns: repeat(4,1fr);
+      gap:12px;
+      margin-bottom:18px;
+    }
+    .emoji-input{
+      background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:12px;
+      padding:12px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      border:1px solid rgba(255,255,255,0.03);
+    }
+    .emoji-input label{font-size:13px;color:var(--muted);width:36px;}
+    .emoji-input input{
+      flex:1;
+      background:transparent;
+      border:0;
+      outline:none;
+      color:inherit;
+      font-size:20px;
+      padding:6px 8px;
+      border-radius:10px;
+    }
+    .controls{display:flex;justify-content:flex-end;gap:12px;align-items:center;margin-top:12px;}
+    button.btn{
+      background:linear-gradient(180deg,var(--accent), #3fd0a4);
+      color:#04221a;
+      border:0;border-radius:12px;padding:10px 16px;font-weight:700;cursor:pointer;
+      box-shadow: 0 6px 18px rgba(15,90,70,0.12);
+    }
+    button.btn:disabled{
+      background:linear-gradient(180deg,#9aaab0,#7f9099);
+      color:#e6eef8;cursor:not-allowed;box-shadow:none;
+    }
+
+    /* Stage views */
+    .stage-wrap{display:flex;gap:20px;}
+    .left-panel{width:48%;}
+    .right-panel{width:52%;}
+    .card{
+      background: linear-gradient(180deg,var(--card),var(--glass));
+      padding:var(--card-pad);
+      border-radius:var(--radius);
+      border:1px solid rgba(255,255,255,0.03);
+      box-shadow: 0 6px 24px rgba(2,6,23,0.5);
+    }
+    .group-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;}
+    .group{
+      padding:10px;border-radius:12px;background:linear-gradient(180deg,var(--glass),var(--glass-2));
+    }
+    .group h3{margin:0 0 8px 0;font-size:15px;}
+    table.standings{width:100%;border-collapse:collapse;font-size:13px;color:var(--muted);}
+    table.standings th, table.standings td{padding:6px 6px;text-align:left;}
+    table.standings tr+tr td{border-top:1px dashed rgba(255,255,255,0.03);}
+    .team-row{display:flex;align-items:center;gap:10px;}
+    .team-emoji{font-size:18px;min-width:34px;display:inline-block;text-align:center;}
+    .score-input{width:68px;display:flex;gap:8px;align-items:center;justify-content:space-between;}
+    .score-input input{width:44px;border-radius:8px;padding:6px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:inherit;text-align:center;}
+    .match{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));margin-bottom:8px;}
+    .muted{color:var(--muted);font-size:13px;}
+
+    /* Bracket */
+    .bracket{display:flex;flex-direction:column;gap:12px;align-items:center;margin-top:14px;}
+    .bracket-row{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;}
+    .match-card{padding:10px;border-radius:10px;background:rgba(255,255,255,0.02);min-width:160px;text-align:center;}
+    .winner{font-weight:700;color:var(--accent);}
+
+    /* small */
+    .small{font-size:13px;color:var(--muted);}
+
+    /* responsive */
+    @media (max-width:900px){
+      .stage-wrap{flex-direction:column;}
+      .left-panel,.right-panel{width:100%;}
+      .grid-32{grid-template-columns:repeat(2,1fr);}
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="app">
+    <h1>Emoji Turnier</h1>
+    <p class="lead">Gib 32 Emojis (oder Emoji-Kombinationen) ein. Danach wird ein 32er Turnier automatisch gespielt.</p>
+
+    <div id="screen-initial">
+      <div class="grid-32" id="inputs32"></div>
+      <div class="controls">
+        <div class="small muted">Alle Felder müssen mindestens ein Emoji enthalten.</div>
+        <button class="btn" id="btnStart" disabled>Weiter</button>
+      </div>
+    </div>
+
+    <div id="screen-groups" style="display:none;margin-top:18px;">
+      <div class="stage-wrap">
+        <div class="left-panel">
+          <div class="card">
+            <h2 style="margin-top:0">Gruppen (A–H)</h2>
+            <div class="group-grid" id="groupsContainer"></div>
+          </div>
+        </div>
+        <div class="right-panel">
+          <div class="card">
+            <h2 style="margin-top:0">Spieltag & Matches</h2>
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
+              <div class="small muted">Aktueller Spieltag:</div>
+              <select id="mdSelect"></select>
+              <div style="flex:1"></div>
+              <div id="mdStatus" class="small muted"></div>
+            </div>
+            <div id="matchesContainer"></div>
+            <div class="controls" style="margin-top:12px;">
+              <button class="btn" id="btnNextMD" disabled>Weiter Spieltag</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="screen-knockout" style="display:none;margin-top:18px;">
+      <div class="card">
+        <h2 style="margin-top:0">K.-o.-Runden</h2>
+        <div id="knockoutContainer"></div>
+        <div style="display:flex;justify-content:flex-end;margin-top:12px;">
+          <button class="btn" id="btnNextKO" disabled>Weiter</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="screen-final" style="display:none;margin-top:18px;">
+      <div class="card">
+        <h2 style="margin-top:0">Turnierbaum</h2>
+        <div id="finalBracket" class="bracket"></div>
+        <div style="display:flex;justify-content:center;margin-top:14px;">
+          <button class="btn" id="btnRestart">Erneut spielen</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // ---------- Utilities ----------
+    function el(tag, props={}, ...children){
+      const e = document.createElement(tag);
+      for(const k in props){
+        if(k.startsWith('on') && typeof props[k]==='function') e.addEventListener(k.slice(2), props[k]);
+        else if(k==='html') e.innerHTML = props[k];
+        else e.setAttribute(k, props[k]);
+      }
+      children.forEach(c => { if(c==null) return; if(typeof c === 'string') e.appendChild(document.createTextNode(c)); else e.appendChild(c); });
+      return e;
+    }
+
+    // emoji detection using Unicode property (modern browsers)
+    function containsEmoji(str){
+      if(!str) return false;
+      try{
+        return /\p{Emoji}/u.test(str);
+      }catch(e){
+        // Fallback: require at least one non-alphanumeric symbol
+        return /[^\w\s]/.test(str);
+      }
+    }
+
+    function randShuffle(arr){
+      for(let i=arr.length-1;i>0;i--){
+        const j=Math.floor(Math.random()*(i+1));
+        [arr[i],arr[j]]=[arr[j],arr[i]];
+      }
+    }
+
+    // ---------- Initial 32 inputs ----------
+    const inputs32 = document.getElementById('inputs32');
+    const btnStart = document.getElementById('btnStart');
+    const emojiFields = [];
+    for(let i=0;i<32;i++){
+      const idx = i+1;
+      const wrap = el('div',{class:'emoji-input'});
+      const label = el('label',{}, idx);
+      const input = el('input',{placeholder:'Emoji(s) z.B. ⚽️', 'data-index':i});
+      input.addEventListener('input', onEmojiInput);
+      wrap.appendChild(label);
+      wrap.appendChild(input);
+      inputs32.appendChild(wrap);
+      emojiFields.push(input);
+    }
+
+    function onEmojiInput(){
+      const ok = emojiFields.every(f => containsEmoji(f.value.trim()));
+      btnStart.disabled = !ok;
+    }
+
+    // ---------- State ----------
+    let state = {
+      teams: [], // {id, name (emoji), group}
+      groups: {}, // A..H -> [teamIds]
+      groupStandings: {}, // group -> array of team objects with stats
+      matchday: 1,
+      matchesByGroup: {}, // group -> [{a,b,played,scoreA,scoreB,md}]
+      knockoutRounds: [], // array of rounds, each [{aId,bId,scoreA,scoreB,played,winnerId}]
+      currentKORoundIndex: 0
+    };
+
+    // ---------- Start & group assignment ----------
+    btnStart.addEventListener('click', ()=>{
+      // gather emojis
+      const entries = emojiFields.map(f => f.value.trim());
+      // build teams
+      state.teams = entries.map((name,i)=>({id:i, name, originalIndex:i}));
+      // shuffle and assign to groups A..H
+      const groupNames = 'ABCDEFGH'.split('');
+      const indices = [...Array(32).keys()];
+      randShuffle(indices);
+      state.groups = {};
+      for(let g=0;g<8;g++){
+        const arr = [];
+        for(let t=0;t<4;t++){
+          const teamIndex = indices[g*4 + t];
+          arr.push(state.teams[teamIndex].id);
+        }
+        state.groups[groupNames[g]] = arr;
+      }
+      initGroupStage();
+      // switch screens
+      document.getElementById('screen-initial').style.display='none';
+      document.getElementById('screen-groups').style.display='block';
+      renderGroups();
+      setupMatchdaySelector(1);
+      renderMatchesForMatchday(1);
+    });
+
+    function initGroupStage(){
+      state.matchday = 1;
+      state.matchesByGroup = {};
+      state.groupStandings = {};
+      // create matches for each group using fixed 3-matchdays schedule for 4 teams:
+      // MD1: 0-1,2-3 ; MD2:0-2,1-3 ; MD3:0-3,1-2
+      const pairings = [
+        [[0,1],[2,3]],
+        [[0,2],[1,3]],
+        [[0,3],[1,2]]
+      ];
+      for(const g in state.groups){
+        const teamIds = state.groups[g];
+        state.matchesByGroup[g] = [];
+        for(let md=0;md<3;md++){
+          for(const p of pairings[md]){
+            const a = teamIds[p[0]];
+            const b = teamIds[p[1]];
+            state.matchesByGroup[g].push({
+              a,b,md:md+1, played:false, scoreA:null, scoreB:null
+            });
+          }
+        }
+        // init standings
+        state.groupStandings[g] = teamIds.map(id => ({
+          id, played:0, win:0, draw:0, loss:0, gf:0, ga:0, pts:0
+        }));
+      }
+    }
+
+    // ---------- Rendering groups and standings ----------
+    const groupsContainer = document.getElementById('groupsContainer');
+    function renderGroups(){
+      groupsContainer.innerHTML='';
+      for(const g of Object.keys(state.groups)){
+        const card = el('div',{class:'group'});
+        const title = el('h3',{}, 'Gruppe ' + g);
+        card.appendChild(title);
+        const teams = state.groups[g].map(id => state.teams[id].name);
+        const list = el('div',{},);
+        teams.forEach((emoji, i)=>{
+          const row = el('div',{style:'display:flex;align-items:center;justify-content:space-between;padding:6px 0;'});
+          const left = el('div',{class:'team-row'});
+          left.appendChild(el('span',{class:'team-emoji'}, emoji));
+          left.appendChild(el('div',{style:'font-weight:600'}, `Team ${i+1}`));
+          row.appendChild(left);
+          card.appendChild(row);
+        });
+        // add standings placeholder
+        const table = el('table',{class:'standings', 'data-group':g});
+        table.innerHTML = `
+          <thead><tr><th>#</th><th>Team</th><th style="text-align:right">P</th><th style="text-align:right">GF</th><th style="text-align:right">GA</th><th style="text-align:right">Diff</th><th style="text-align:right">Pts</th></tr></thead>
+          <tbody></tbody>
+        `;
+        card.appendChild(table);
+        groupsContainer.appendChild(card);
+      }
+      updateAllStandings();
+    }
+
+    function updateAllStandings(){
+      for(const g of Object.keys(state.groups)){
+        updateStandingsForGroup(g);
+      }
+    }
+
+    function updateStandingsForGroup(g){
+      // reset stats
+      const teams = state.groupStandings[g];
+      teams.forEach(t=>{
+        t.played=0;t.win=0;t.draw=0;t.loss=0;t.gf=0;t.ga=0;t.pts=0;
+      });
+      // accumulate from matches
+      for(const m of state.matchesByGroup[g]){
+        if(m.played){
+          const a = teams.find(x=>x.id===m.a);
+          const b = teams.find(x=>x.id===m.b);
+          a.played++; b.played++;
+          a.gf += m.scoreA; a.ga += m.scoreB;
+          b.gf += m.scoreB; b.ga += m.scoreA;
+          if(m.scoreA>m.scoreB){ a.win++; a.pts+=3; b.loss++; }
+          else if(m.scoreA<m.scoreB){ b.win++; b.pts+=3; a.loss++; }
+          else { a.draw++; b.draw++; a.pts+=1; b.pts+=1; }
+        }
+      }
+      // sort teams: pts desc, diff desc, gf desc
+      teams.sort((x,y)=>{
+        if(y.pts!==x.pts) return y.pts-x.pts;
+        const dx = (y.gf - y.ga) - (x.gf - x.ga);
+        if(dx!==0) return dx;
+        if(y.gf!==x.gf) return y.gf-x.gf;
+        return x.id - y.id;
+      });
+      // render
+      const table = document.querySelector(`table.standings[data-group="${g}"] tbody`);
+      table.innerHTML='';
+      teams.forEach((t,idx)=>{
+        const tr = el('tr',{},
+          el('td',{}, String(idx+1)),
+          el('td',{}, el('span',{class:'team-row'}, el('span',{class:'team-emoji'}, state.teams[t.id].name), el('span',{}, `Team ${t.id+1}`))),
+          el('td',{}, {html: `<div style="text-align:right">${t.played}</div>`}),
+          el('td',{}, {html:`<div style="text-align:right">${t.gf}</div>`}),
+          el('td',{}, {html:`<div style="text-align:right">${t.ga}</div>`}),
+          el('td',{}, {html:`<div style="text-align:right">${t.gf - t.ga}</div>`}),
+          el('td',{}, {html:`<div style="text-align:right">${t.pts}</div>`})
+        );
+        table.appendChild(tr);
+      });
+    }
+
+    // ---------- Matchday management ----------
+    const mdSelect = document.getElementById('mdSelect');
+    const matchesContainer = document.getElementById('matchesContainer');
+    const btnNextMD = document.getElementById('btnNextMD');
+    const mdStatus = document.getElementById('mdStatus');
+
+    function setupMatchdaySelector(selected){
+      mdSelect.innerHTML='';
+      for(let md=1;md<=3;md++){
+        const opt = el('option',{value:md}, 'Spieltag ' + md);
+        mdSelect.appendChild(opt);
+      }
+      mdSelect.value = selected;
+      mdSelect.addEventListener('change', ()=> {
+        state.matchday = Number(mdSelect.value);
+        renderMatchesForMatchday(state.matchday);
+      });
+    }
+
+    function renderMatchesForMatchday(md){
+      matchesContainer.innerHTML='';
+      let totalMatches = 0, filledMatches = 0;
+      for(const g of Object.keys(state.groups)){
+        const title = el('div',{style:'margin-top:10px;margin-bottom:6px;'}, el('div',{style:'font-weight:700;margin-bottom:4px'}, 'Gruppe '+g));
+        matchesContainer.appendChild(title);
+        const groupMatches = state.matchesByGroup[g].filter(m => m.md===md);
+        groupMatches.forEach((m,i)=>{
+          totalMatches++;
+          const matchEl = el('div',{class:'match'});
+          const left = el('div',{style:'display:flex;align-items:center;gap:12px;'}, el('span',{class:'team-emoji'}, state.teams[m.a].name), el('div',{}, `Team ${m.a+1}`));
+          const right = el('div',{style:'display:flex;align-items:center;gap:12px;'}, el('div',{}, `Team ${m.b+1}`), el('span',{class:'team-emoji'}, state.teams[m.b].name));
+          const scoreWrap = el('div',{class:'score-input'});
+          const inA = el('input',{type:'number',min:0,step:1, value: (m.scoreA!=null?m.scoreA:'')});
+          const inB = el('input',{type:'number',min:0,step:1, value: (m.scoreB!=null?m.scoreB:'')});
+          inA.addEventListener('input', ()=> onMatchScoreInput(g,m,inA,inB));
+          inB.addEventListener('input', ()=> onMatchScoreInput(g,m,inA,inB));
+          scoreWrap.appendChild(inA); scoreWrap.appendChild(el('div',{class:'muted'}, ' : ')); scoreWrap.appendChild(inB);
+          matchEl.appendChild(left);
+          matchEl.appendChild(scoreWrap);
+          matchEl.appendChild(right);
+          matchesContainer.appendChild(matchEl);
+          if(m.played) filledMatches++;
+        });
+      }
+      checkMDCompletion();
+      updateMDStatus();
+    }
+
+    function onMatchScoreInput(group, matchObj, inA, inB){
+      const vA = inA.value;
+      const vB = inB.value;
+      if(vA!=='' && vB!==''){
+        const a = parseInt(vA,10);
+        const b = parseInt(vB,10);
+        if(Number.isInteger(a) && a>=0 && Number.isInteger(b) && b>=0){
+          matchObj.scoreA = a; matchObj.scoreB = b; matchObj.played = true;
+        } else {
+          matchObj.played = false;
+        }
+      } else {
+        matchObj.played = false;
+      }
+      updateStandingsForGroup(group);
+      checkMDCompletion();
+      updateMDStatus();
+    }
+
+    function checkMDCompletion(){
+      let allPlayed = true;
+      for(const g of Object.keys(state.groups)){
+        const groupMatches = state.matchesByGroup[g].filter(m=>m.md===state.matchday);
+        for(const m of groupMatches) if(!m.played) allPlayed=false;
+      }
+      btnNextMD.disabled = !allPlayed;
+    }
+
+    function updateMDStatus(){
+      let rem=0;
+      for(const g of Object.keys(state.groups)){
+        const groupMatches = state.matchesByGroup[g].filter(m=>m.md===state.matchday);
+        for(const m of groupMatches) if(!m.played) rem++;
+      }
+      mdStatus.textContent = rem===0 ? 'Alle Ergebnisse eingegeben' : rem + ' ausstehend';
+    }
+
+    btnNextMD.addEventListener('click', ()=>{
+      if(state.matchday < 3){
+        state.matchday++;
+        mdSelect.value = state.matchday;
+        renderMatchesForMatchday(state.matchday);
+      } else {
+        // finished group stage -> advance to knockout
+        prepareKnockout();
+        document.getElementById('screen-groups').style.display='none';
+        document.getElementById('screen-knockout').style.display='block';
+        renderKnockout();
+      }
+    });
+
+    // ---------- After group stage: picking top 2 each group ----------
+    function prepareKnockout(){
+      const adv = [];
+      for(const g of Object.keys(state.groups)){
+        const sorted = state.groupStandings[g].slice().sort((x,y)=>{
+          if(y.pts!==x.pts) return y.pts-x.pts;
+          const dx = (y.gf - y.ga) - (x.gf - x.ga);
+          if(dx!==0) return dx;
+          if(y.gf!==x.gf) return y.gf-x.gf;
+          return x.id - y.id;
+        });
+        adv.push(sorted[0].id, sorted[1].id);
+      }
+      // randomize bracket: shuffle adv then pair
+      randShuffle(adv);
+      const roundOf16 = [];
+      for(let i=0;i<16;i+=2){
+        roundOf16.push({a:adv[i], b:adv[i+1], played:false, scoreA:null, scoreB:null, winner:null});
+      }
+      state.knockoutRounds = [roundOf16]; // index 0 = Achtelfinale
+      state.currentKORoundIndex = 0;
+    }
+
+    // ---------- Knockout rendering and progression ----------
+    const knockoutContainer = document.getElementById('knockoutContainer');
+    const btnNextKO = document.getElementById('btnNextKO');
+
+    function renderKnockout(){
+      knockoutContainer.innerHTML = '';
+      const roundNames = ['Achtelfinale','Viertelfinale','Halbfinale','Finale/Spiel um Platz 3'];
+      for(let r=0;r<state.knockoutRounds.length;r++){
+        const round = state.knockoutRounds[r];
+        const box = el('div',{}, el('h3',{}, roundNames[r] || 'Runde ' + (r+1)));
+        const list = el('div',{style:'display:flex;flex-wrap:wrap;gap:10px;'});
+        round.forEach((m,mi)=>{
+          const mc = el('div',{class:'match-card'});
+          const aName = state.teams[m.a].name;
+          const bName = state.teams[m.b].name;
+          const line = el('div',{}, el('div',{style:'font-weight:700'}, `${aName}  vs  ${bName}`));
+          const inputs = el('div',{style:'display:flex;gap:8px;justify-content:center;margin-top:8px;'});
+          const inA = el('input',{type:'number',min:0,step:1,style:'width:54px;padding:6px;border-radius:8px;', value:(m.scoreA!=null?m.scoreA:'')});
+          const inB = el('input',{type:'number',min:0,step:1,style:'width:54px;padding:6px;border-radius:8px;', value:(m.scoreB!=null?m.scoreB:'')});
+          inA.addEventListener('input', ()=> onKOMatchInput(r,mi,inA,inB));
+          inB.addEventListener('input', ()=> onKOMatchInput(r,mi,inA,inB));
+          inputs.appendChild(inA); inputs.appendChild(el('div',{class:'muted'}, ' : ')); inputs.appendChild(inB);
+          mc.appendChild(line); mc.appendChild(inputs);
+          if(m.winner!=null){
+            mc.appendChild(el('div',{style:'margin-top:8px'}, el('span',{class:'winner'}, 'Gewinner: ' + state.teams[m.winner].name)));
+          }
+          list.appendChild(mc);
+        });
+        knockoutContainer.appendChild(box);
+        knockoutContainer.appendChild(list);
+      }
+      checkKOReady();
+    }
+
+    function onKOMatchInput(roundIndex, matchIndex, inA, inB){
+      const match = state.knockoutRounds[roundIndex][matchIndex];
+      const vA = inA.value, vB = inB.value;
+      if(vA!=='' && vB!==''){
+        const a = parseInt(vA,10), b = parseInt(vB,10);
+        if(Number.isInteger(a)&&Number.isInteger(b)&&a>=0&&b>=0){
+          match.scoreA = a; match.scoreB = b; match.played = true;
+          if(a!==b){
+            match.winner = a>b ? match.a : match.b;
+          } else {
+            // tie: require user selection (penalties) — show a quick prompt to choose
+            const pick = confirm('Remis in K.O.-Match. Möchtest du den Sieger zufällig ermitteln? OK = Zufallssieger, Abbrechen = wähle manuell (wird zufällig wenn du Abbrechen erneut abbrechen).');
+            if(pick){
+              match.winner = Math.random() < 0.5 ? match.a : match.b;
+            } else {
+              // let it remain undecided until user picks via second confirm
+              match.winner = Math.random() < 0.5 ? match.a : match.b;
+            }
+          }
+        } else match.played=false;
+      } else {
+        match.played=false;
+      }
+      // re-render to show winners
+      renderKnockout();
+      checkKOReady();
+    }
+
+    function checkKOReady(){
+      // current round must be fully played to advance
+      const cur = state.currentKORoundIndex;
+      const round = state.knockoutRounds[cur];
+      let allPlayed = true;
+      for(const m of round) if(!m.played || m.winner==null) allPlayed=false;
+      btnNextKO.disabled = !allPlayed;
+    }
+
+    btnNextKO.addEventListener('click', ()=>{
+      // advance winners to next round
+      const cur = state.currentKORoundIndex;
+      const round = state.knockoutRounds[cur];
+      const winners = round.map(m=>m.winner);
+      if(winners.length===1){
+        // tournament finished (this case occurs if we had only one KO round left)
+        showFinalBracket();
+        return;
+      }
+      // build next round pairs
+      const nextRound = [];
+      for(let i=0;i<winners.length;i+=2){
+        nextRound.push({a:winners[i], b:winners[i+1], played:false, scoreA:null, scoreB:null, winner:null});
+      }
+      state.knockoutRounds.push(nextRound);
+      state.currentKORoundIndex++;
+      // If we just created final round where we need also 3rd place match, handle special: when there are 2 matches left (semis) we will later produce final and 3rd place manually
+      renderKnockout();
+      // If final round created has only 1 match left, we still need to create an extra match for 3rd place after semis winners/losers
+      // Instead, when advancing from semis to final, create final + 3rd place placeholders:
+      if(state.knockoutRounds[state.currentKORoundIndex].length===1 && state.knockoutRounds.length===3){
+        // we've advanced to final (after semis). create 3rd place match using semis losers
+        const semis = state.knockoutRounds[ state.currentKORoundIndex - 1 ];
+        // compute losers:
+        const losers = semis.map(m => (m.winner===m.a ? m.b : m.a));
+        // create final is already there; append third-place as another match in the last "round" group container for UI simplification
+        state.knockoutRounds[state.currentKORoundIndex].push({a:losers[0], b:losers[1], played:false, scoreA:null, scoreB:null, winner:null, thirdPlace:true});
+      }
+      // If we've just finished final and 3rd place (round with two matches and winners set), detect finish:
+      const lastRound = state.knockoutRounds[state.knockoutRounds.length-1];
+      if(lastRound.length===2){
+        const allDone = lastRound.every(m => m.played && m.winner!=null);
+        if(allDone){
+          showFinalBracket();
+        }
+      }
+      checkKOReady();
+    });
+
+    function showFinalBracket(){
+      // hide knockout, show final
+      document.getElementById('screen-knockout').style.display='none';
+      document.getElementById('screen-final').style.display='block';
+      // build bracket summary:
+      const container = document.getElementById('finalBracket');
+      container.innerHTML='';
+      // Collect winners and losers
+      const rounds = state.knockoutRounds;
+      // Round labels
+      for(let r=0;r<rounds.length;r++){
+        const row = el('div',{class:'bracket-row'});
+        rounds[r].forEach(m=>{
+          const a = state.teams[m.a].name;
+          const b = state.teams[m.b].name;
+          const winner = m.winner!=null ? state.teams[m.winner].name : '-';
+          const matchEl = el('div',{class:'match-card'},
+            el('div',{}, `${a}  vs  ${b}`),
+            el('div',{style:'margin-top:8px'}, `Ergebnis: ${m.scoreA ?? '-'} : ${m.scoreB ?? '-'}`),
+            el('div',{style:'margin-top:6px'}, el('span',{class:'winner'}, `Sieger: ${winner}`))
+          );
+          row.appendChild(matchEl);
+        });
+        container.appendChild(el('div',{}, el('h4',{}, r===0?'Achtelfinale':r===1?'Viertelfinale':r===2?'Halbfinale':'Finale/3. Platz')));
+        container.appendChild(row);
+      }
+    }
+
+    // ---------- Restart ----------
+    const btnRestart = document.getElementById('btnRestart');
+    btnRestart.addEventListener('click', ()=>{
+      location.reload();
+    });
+
+    // ---------- initial helper ----------
+    // nothing else needed; the UI initializes above
+  </script>
+</body>
+</html>
